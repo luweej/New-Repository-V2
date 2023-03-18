@@ -1,0 +1,20 @@
+---
+title: "Income Boosters LLC."
+author: "Kirk Copley, Luigi Ignacio, Rachel Robins-Mayhill"
+date: "2023-03-18"
+output: html_document
+---
+
+# Goal
+
+Knowing what factors determine a person's income is crucial for making informed career and financial decisions. Our project is using data science to predict what factors lead to individuals earning at least $50k a year, based on their attributes. By analyzing a large dataset of demographic and employment information, we're uncovering patterns and relationships that were previously hidden. Let's use data to empower individuals and drive economic success.
+
+<br>
+
+Our goal can be accomplished through exploring these questions:
+
+* How does education impact the achievement of a $50K salary?
+
+* How does occupation impact $50K salary achievement?
+
+* What are the best target markets to find the most appropriate candidates for our program?

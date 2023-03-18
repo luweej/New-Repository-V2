@@ -54,19 +54,52 @@ library(kernlab)
   
   # Convert character columns to numbers
   adultNumeric <- adult %>% 
-    mutate(across(where(is.factor), as.numeric, .names = "{.col}_numeric"))
+    mutate(across(where(is.factor), as.numeric, .names = "{.col}_numeric"), .keep = "unused")
+  
+  #Reformat class_numeric as a factor variable
+  adultNumeric$class_numeric <- as.factor(adultNumeric$class_numeric)
+  
+  colnames(adultNumeric) <- make.names(colnames(adultNumeric))
   
   
-  
-  
-# Classification--------------------------------------------------------------------
+# Classification Round 1--------------------------------------------------------
 
   set.seed(11111)
   
-  trainList <- createDataPartition(y=adult$class, p=.8,list=F)
+  #Generate list of indices to slpit data on 
+  trainList <- createDataPartition(y=adultNumeric$class_numeric, p=.8,list=F)
   
-  trainSet <- adult[trainList,]
-  testSet <- adult[-trainList,]
+  #Create training and testing subsets
+  trainSet <- adultNumeric[trainList,]
+  testSet <- adultNumeric[-trainList,]
   
-  svmModel <- train(class ~., data = trainSet, method = "rpart",
+  #Train an rPart Model
+  rPartModel <- train(class_numeric ~ ., data = trainSet, method = "rpart",
                     preProc=c("center", "scale"))
+  
+  #Check Accuracy of Model
+  rPartPred <- predict(rPartModel, newdata = testSet, type = "raw")
+  
+  confusionMatrix(rPartPred, testSet$class_numeric)
+  
+# Classification Round 1--------------------------------------------------------
+  
+  set.seed(11111)
+  
+  #Generate list of indices to slpit data on 
+  trainList <- createDataPartition(y=adultNumeric$class_numeric, p=.8,list=F)
+  
+  #Create training and testing subsets
+  trainSet <- adultNumeric[trainList,]
+  testSet <- adultNumeric[-trainList,]
+  
+  #Train an rPart Model
+#  svmModel <- train(class_numeric ~ ., data = trainSet, method = "svmLinear",
+                      preProc=c("center", "scale"))
+  
+  #Check Accuracy of Model
+  svmPred <- predict(svmModel, newdata = testSet, type = "raw")
+  
+  confusionMatrix(svmPred, testSet$class_numeric)
+  
+  svmModel
