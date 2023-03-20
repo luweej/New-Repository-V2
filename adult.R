@@ -6,8 +6,7 @@ library(rpart)
 library(rpart.plot)
 library(kernlab)
 
-
-#Read in data ------------------------------------------------------------------
+#Read in data-------------------------------------------------------------------
 
   #Set data source url
   data <- url("https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data")
@@ -28,6 +27,10 @@ library(kernlab)
   #Add column names to adult
   colnames(adult) <- names
 
+  glimpse(adult)
+  
+  head(adult)
+  
 #Review and format Data---------------------------------------------------------
   glimpse(adult)
   summary(adult)
@@ -82,7 +85,9 @@ library(kernlab)
   
   confusionMatrix(rPartPred, testSet$class_numeric)
   
-# Classification Round 1--------------------------------------------------------
+  varImp(rPartModel)
+  
+# Classification Round 2--------------------------------------------------------
   
   set.seed(11111)
   
@@ -94,12 +99,19 @@ library(kernlab)
   testSet <- adultNumeric[-trainList,]
   
   #Train an rPart Model
-#  svmModel <- train(class_numeric ~ ., data = trainSet, method = "svmLinear",
+  rPartModel2 <- train(class_numeric ~ . -fnlwgt -capital.gain -capital.loss, 
+                      data = trainSet, 
+                      method = "rpart",
                       preProc=c("center", "scale"))
   
   #Check Accuracy of Model
-  svmPred <- predict(svmModel, newdata = testSet, type = "raw")
+  rPartPred <- predict(rPartModel, newdata = testSet, type = "raw")
   
-  confusionMatrix(svmPred, testSet$class_numeric)
+  confusionMatrix(rPartPred, testSet$class_numeric)
   
-  svmModel
+  varImp(rPartModel2)
+  
+  library(rattle)
+  
+  fancyRpartPlot(rPartModel2$finalModel)
+  

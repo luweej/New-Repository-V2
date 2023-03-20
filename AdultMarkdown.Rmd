@@ -18,3 +18,47 @@ Our goal can be accomplished through exploring these questions:
 * How does occupation impact $50K salary achievement?
 
 * What are the best target markets to find the most appropriate candidates for our program?
+
+
+# Execution
+
+In order to build a model, we used a dataset called "adult" that lists individuals demographics data and if they make at least $50,000.  The observations and variable names are provided separately so they must be knitted together. The resulting dataframe is stored in **adult**
+```{r readData, message = FALSE, echo = TRUE, warning = FALSE}
+#Include Libraries--------------------------------------------------------------
+library(tidyverse)
+library(stringr)
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(kernlab)
+
+#Read in data-------------------------------------------------------------------
+
+  #Set data source url
+  data <- url("https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data")
+  
+  #Colnames url
+  column_names <- url("https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.names")
+  
+  #Make vector of column names to add to "adult"
+  names <- read_delim(column_names, col_names = F, delim = ":" ,skip = 94)
+  names <- as.vector(names$X1) 
+  names <- names[2:length(names)]
+  names <- gsub(":.*","",names)
+  names <- c(names, "class")
+  
+  #Read in observations as csv, column names not included on this url
+  adult <- read_csv(data, col_names = F, show_col_types = F) 
+  
+  #Add column names to adult
+  colnames(adult) <- names
+
+  #View the structure of the dataframe
+  glimpse(adult)
+
+```
+
+
+
+
+
