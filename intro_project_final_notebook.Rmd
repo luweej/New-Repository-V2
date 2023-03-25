@@ -1,0 +1,542 @@
+---
+output:
+  html_document:
+    df_print: paged
+---
+
+### INCOME BOOSTERS: Predicting Achievement of a Living Wage Salary
+**An Exploration of the 'Adult' Data Set from the University of California Irvine Data Repository**
+
+By: Kirk Copley   |   Luigi Ignacio   |   Rachel Robbins-Mayhill
+
+-----------------------------------------------------------------------------------------------------------
+
+
+### **1. DESCRIPTION:**
+
+Obtaining a living wage that supports an individual or family is vital to overall well-being, not only for the individuals directly involved, but for the surrounding community as well. Living wages reduce poverty, impacting individuals, families, and communities as a whole. They enable improved physical and mental health, allowing for increased access to healthcare, proper nutrition, and safe housing. Living wages promote economic growth, funneling more money to individuals to spend on goods and services which in turn boosts local economies. Lastly, living wages reduce economic inequality by providing fair wages for labor which can help narrow income gaps between different groups within society. This project will identify key drivers impacting the achievement of a living wage. In the case of this project, the living wage is determined to be \$50,000, the target variable with the 'Adult' data set. The project will use statistics, visualizations, and modeling to identify factors that contribute to achievement of a living wage. Ultimately, it will provide recommendations that could be used by workforce solutions or other community-based services to target under-served populations in need of bolstering programs.
+
+### **2. PROJECT GOAL:**
+
+The goal of this project is to use data exploration, statistical analysis, and machine learning to identify key drivers of individuals achieving a \$50,000 salary, and to make recommendations on avenues to help job-seekers earn \$50,000.
+
+===========================================================================================================
+
+### **I. DATA ACQUISITION:**
+
+We acquired our data from the University of California - Irvine Machine Learning Repository at: <https://archive.ics.uci.edu/ml/datasets/adult>
+
+To look at the data, some supporting programs were needed first, so libraries were imported. After the data was acquired, we brought in the column names for the dataset then viewed the overall structure and summary staistics to get a feel for the data.
+
+#### Import Libraries
+
+
+```{r importLibraries, warning=FALSE, echo=FALSE, message=FALSE} 
+
+# import tidyverse
+library(tidyverse)
+#install.packages("ggplot2")
+library(ggplot2)
+#install.packages("tidytext")
+library(tidytext)
+#install.packages("readtext")
+library(readtext)
+#install.packages("OptimalCutpoints")
+library(OptimalCutpoints)
+#install.packages("tm")
+#library(tm) no longer using the tm package
+#install.packages("wordcloud")
+library(wordcloud)
+#install.packages("ggplot2")
+library(ggplot2)
+#install.packages("slam")
+library(slam)
+#install.packages("quanteda")
+library(quanteda)
+#install.packages("quanteda.textplots")
+library(quanteda.textplots)
+#install.packages("quanteda.textstats")
+library(quanteda.textstats)
+#install.packages("quanteda.textmodels")
+library(quanteda.textmodels)
+library(stringr)
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(kernlab)
+
+```
+
+#### Acquire Data & Corresponding Column Names
+
+```{r warning=F, message=F}
+#Turn off Warnings
+tidyverse.quiet = TRUE
+dplyr.summarise.inform = FALSE
+
+#Set data source url
+data <- url("https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data")
+
+#Colnames url
+column_names <- url("https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.names")
+
+#Make vector of column names to add to "adult"
+names <- read_delim(column_names, col_names = F, delim = ":" ,skip = 94)
+names <- as.vector(names$X1) 
+names <- names[2:length(names)]
+names <- gsub(":.*","",names)
+names <- c(names, "class")
+
+#Read in observations as csv, column names not included on this url
+adult <- read_csv(data, col_names = F, show_col_types = F) 
+
+#Add column names to adult
+colnames(adult) <- names
+
+# view the dataframe/tibble.
+head(adult)
+```
+
+#### View the Structure of the Data Set
+
+```{r}
+# View the structure of the dataframe.
+# View the quantity of fields/attributes
+str(adult)
+```
+
+#### View Summary Statistics for the Data Set
+```{r}
+# View data counts & dispersion 
+summary(adult)
+```
+
+
+===========================================================================================================
+
+### **II. Data Preparation:**
+
+After data acquisition, the table consisted of 32,561 rows and 15 columns. The variables \"age\", \"fnlwgt\", \"education_num\", \"capital_gain\", \"capital_loss\" and \"hours_per_week\" are integers, while all the other variables are character variables. 
+
+The table was analyzed and adjusted to eliminate missing values, data errors, clarify confusion, and code non-numeric data into more useful numeric types. Upon completion of cleaning, the table had *7032*\_\_\_ rows and *29* \_\_\_\_\_columns.
+
+Some of the data correction strategies that were employed were:
+
+1. Renaming columns to have column names reflect contents of columns (added to data acquisition).
+
+2. Converting all content to lowercase for uniformity.
+
+3. Filtering the dataset to narrow the focus 
+
+4. Addressing missing values to prevent issues when modeling.
+
+5. Standardize datatypes for analysis and modeling
+
+6. Dropping unnecessary columns to eliminate noise in exploration and in the model.
+  - fnlwgt will be dropped as this is the sampling weight and we do not want to use it in the model
+  - education will be dropped because is the
+
+-----------------------------------------------------------------------------------------------------------
+
+#### **1. Rename columns to have column names reflect contents of columns (added to data acquisition).**
+See I. Acquisition, above
+
+-----------------------------------------------------------------------------------------------------------
+
+#### **2. Convert all content to lowercase for uniformity.**
+```{r}
+# convert strings to lowercase
+adult <- adult %>%
+  mutate_if(is.character, tolower)
+
+# View outcome
+head(adult)
+```
+
+-----------------------------------------------------------------------------------------------------------
+
+#### **3. Filter the dataset to narrow the focus**
+Focusing on adults 25-65, primary workforce ages, eliminating those typically in school or in retirement that could impact $50k target variable due to workforce involvement. If there was time for a second iteration post-MVP, we would want to explore these categories (school age and retirement age) more, to identify ways to include them in the analysis. 
+
+```{r}
+# filter the dataframe to include only individuals aged 25-65 
+adult <- adult[adult$age >= 25 & adult$age <= 65, ] 
+
+# View Min and Max to verify change
+summary(adult)
+
+```
+
+-----------------------------------------------------------------------------------------------------------
+
+#### **4. Address missing values to prevent issues when modeling.**
+Some missing values were listed with question marks in the dataset, making it appear like there were no NA values. So, we first needed to replace the question marks with NA to identify and remove NA values. After making NA values uniform, we decided to drop missing values from workclass and occupation columns for first pass and MVP, as it impacts few observations in comparison to the larger data set. If we had opportunity for a second pass, we could entertain imputation options. We also decided to replace missing values in native-country to reflect "unknown" as we did not anticipate that column would have great impact in modeling, but wanted to retain it as much as possible in case there were trends in exploration. 
+
+```{r}
+# View NA values - note none identified because they are noted as question marks in the dataset
+colSums(is.na(adult))
+```
+
+```{r}
+#  Correct NA status to replace question marks
+adult[adult== "?"] <- NA
+
+
+# View N/A values after replacement
+colSums(is.na(adult))
+
+```
+
+**Observation:** There are N/A values in the workclass, occupation, and native_country columns. There are small quantities, so for MVP the observations with N/A values will be dropped for workclass and occupation, while native-country will be replaced with "unknown".
+
+```{r}
+# drop missing values from the workclass and occupation columns 
+adult <- adult[!is.na(adult$workclass) & !is.na(adult$occupation), ] 
+  
+# replace missing values in the native-country column with "unknown" 
+adult$`native-country`[is.na(adult$`native-country`)] <- "unknown"
+  
+#Check for NA values
+colSums(is.na(adult))
+``` 
+
+
+-----------------------------------------------------------------------------------------------------------
+
+#### 5. Standardize datatypes for analysis and modeling
+
+To make the data more consistent and usable for modeling, a separate data set called "adultNumeric" was created to convert character columns to factor columns then it took the factor columns and converted them to numeric.  This approach was used as a first pass-MVP, but may need to be analyzed on a second pass as next steps as numeric values assigned to factor levels are often arbitrary, and there is no guarantee that they will be interpreted correctly by the model. Although this approach is used for the first iteration, we would want to be sure to carefully consider the implications for analysis and modeling, working to go back and review the factor assignment on a second iteration.
+```{r}
+#Convert character type variables to factors
+adult <- adult %>% 
+  mutate(across(where(is.character), as.factor))
+  
+# Convert character columns to numbers
+adultNumeric <- adult %>% 
+  mutate(across(where(is.factor), as.numeric, .names = "{.col}_numeric"), .keep = "unused")
+
+# View outcome
+str(adultNumeric)
+
+```
+
+```{r}
+#Reformat class_numeric as a factor variable
+adultNumeric$class_numeric <- as.factor(adultNumeric$class_numeric)
+
+
+colnames(adultNumeric) <- make.names(colnames(adultNumeric))
+```
+
+#### 6. Drop unnecessary columns to eliminate noise in exploration and in the model.
+
+Some of the columns may interfere with proper modeling as they provide oppirtuity for overfitting, giving insight into weights, or other financial information that may skew the outcomes. The column fnlwgt will be dropped as this is the sampling weight and we do not want to use it in the model as it provided information pertaining to the target. The columns capital-gain, and capital-loss will also be dropped as we felt most observations with those categories would imply there was ample income for investments. 
+  
+  - education will be dropped because is the
+
+
+```{r}
+# Select only the columns desired for exploration and modeling
+adultClean <- select(adult, -fnlwgt, -`capital-gain`, -`capital-loss`, -`education-num`)
+
+#View the outcome
+head(adult)
+
+#change "marital-status" variable name to "marital"
+adult <- adult %>%
+  rename(marital = `marital-status`)
+```
+
+```{r}
+# Select only the columns desired for exploration and modeling for adultNumeric
+#adultNumeric <- select(adult, -fnlwgt, -`capital-gain`, -`capital-loss`, -`education-num`)
+
+# View the outcome
+head(adultNumeric)
+```
+
+
+===========================================================================================================
+
+### III. Exploration
+
+Exploration started by looking at all data, remaining features, and how they may be related to 50k salaries.
+Looking at a correlation matrix of the features in connection with the target of 50k (below), we see a higher correlation with:
+_____ - Positive Correlation
+_____- Postive Correlation
+_____ - Positive Correlation
+_Tenure Months____ - Negative Correlation
+
+
+
+
+Exploratory Questions
+The correlation observations guided our exploratory questions.
+
+1. Are _______ More Likely to Achieve 50k?
+2. Are _______ More Likely to Achieve 50k?
+3. Are _______ More Likely to Achieve 50k?
+
+
+
+
+
+
+
+
+```{r stackedBarEducation}
+#Bucket all education levels below High School Graduate
+adultEducationSum <-  adult %>% 
+                        mutate(    
+                          education = case_match(
+                                        education,
+                                       c("10th", "11th", 
+                                         "12th", "1st-4th", 
+                                         "5th-6th", "7th-8th", 
+                                         "9th", "preschool") 
+                                       ~ "below_hs_grad", .default = education
+                                       )
+                        )
+
+# Count class type for each education level
+adultEducationSum <- adultEducationSum %>% 
+  count(education, class) %>%
+  rename(observations = n) %>%
+  group_by(education) %>%
+  mutate(percentage = round(observations / sum(observations) * 100,1)) %>%
+  ungroup()
+
+
+ggplot(adultEducationSum, aes(x = education, y = percentage, fill = class)) +
+  geom_bar(stat = "identity") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Class by Education Level")
+
+```
+
+```{r stackedBarOccupation}
+# Count class type for each occupation category
+adultOccupationSum <- adult %>% 
+  count(occupation, class) %>%
+  rename(observations = n) %>%
+  group_by(occupation) %>%
+  mutate(percentage = round(observations / sum(observations) * 100,1)) %>%
+  ungroup() %>%
+  arrange(desc(class == ">50k"))
+
+
+
+ggplot(adultOccupationSum, aes(x = occupation, y = percentage, fill = class)) +
+  geom_bar(stat = "identity") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Class by Occupation")
+```
+
+```{r stackedBarEducationBySex}
+#Bucket all education levels below High School Graduate
+adultEducationBucket <-  adult %>% 
+                        mutate(    
+                          education = case_match(
+                                        education,
+                                       c("10th", "11th", 
+                                         "12th", "1st-4th", 
+                                         "5th-6th", "7th-8th", 
+                                         "9th", "preschool") 
+                                       ~ "below_hs_grad", .default = education
+                                       )
+                        )
+
+# Count class type for each occupation category
+adultEducationGenderSumMale <- adultEducationBucket %>% 
+  filter(sex == "male") %>%
+  count(education, class, .drop = FALSE) %>%
+  rename(observations = n) %>%
+  mutate(sex = "male")
+  
+adultEducationGenderSumFemale <- adultEducationBucket %>% 
+  filter(sex == "female") %>%
+  count(education, class, .drop = FALSE) %>%
+  rename(observations = n) %>%
+  mutate(sex = "female")
+  
+adultEducationGendAll <- adultEducationGenderSumMale %>% 
+                          bind_rows(adultEducationGenderSumFemale) %>%
+                          group_by(education, sex) %>%
+                          mutate(percentage = round(observations / sum(observations) * 100,1)) %>%
+                          ungroup() %>%
+                          arrange(desc(class == ">50k"))
+
+
+
+ggplot(adultEducationGendAll, aes(x = education, y = percentage, fill = class)) +
+  geom_bar(stat = "identity") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  facet_grid(. ~ sex) +
+  labs(title = "Class by Gender and Education")
+
+```
+
+```{r stackedBarOccupationBySex}
+# Count class type for each occupation category
+adultOccupationGenderSumMale <- adult %>% 
+  filter(sex == "male") %>%
+  count(occupation, class, .drop = FALSE) %>%
+  rename(observations = n) %>%
+  mutate(sex = "male")
+  
+adultOccupationGenderSumFemale <- adult %>% 
+  filter(sex == "female") %>%
+  count(occupation, class, .drop = FALSE) %>%
+  rename(observations = n) %>%
+  mutate(sex = "female")
+  
+adultOccGendAll <- adultOccupationGenderSumMale %>% 
+                     bind_rows(adultOccupationGenderSumFemale) %>%
+                     group_by(occupation, sex) %>%
+                     mutate(percentage = round(observations / sum(observations) * 100,1)) %>%
+                     ungroup() %>%
+                     arrange(desc(class == ">50k"))
+
+
+ggplot(adultOccGendAll, aes(x = occupation, y = percentage, fill = class)) +
+  geom_bar(stat = "identity") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  facet_grid(. ~ sex) +
+  labs(title = "Class by Gender and Occupation")
+
+```
+
+```{r stackedBarMaritalBySex}
+# Count class type for each marital category
+adultMaritalGenderSumMale <- adult %>% 
+  filter(sex == "male") %>%
+  count(marital, class, .drop = FALSE) %>%
+  rename(observations = n) %>%
+  mutate(sex = "male")
+  
+adultMaritalGenderSumFemale <- adult %>% 
+  filter(sex == "female") %>%
+  count(marital, class, .drop = FALSE) %>%
+  rename(observations = n) %>%
+  mutate(sex = "female")
+  
+adultOccGendAll <- adultMaritalGenderSumMale %>% 
+                     bind_rows(adultMaritalGenderSumFemale) %>%
+                     group_by(marital, sex) %>%
+                     mutate(percentage = round(observations / sum(observations) * 100,1)) %>%
+                     ungroup() %>%
+                     arrange(desc(class == ">50k"))
+
+
+ggplot(adultOccGendAll, aes(x = marital, y = percentage, fill = class)) +
+  geom_bar(stat = "identity") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  facet_grid(. ~ sex) +
+  labs(title = "Class by Gender and Marital Status")
+
+```
+
+-----------------------------------------------------------------------------------------------------------
+
+#### EXPLORATION SUMMARY
+
+**An Overview of the exploratory questions and answers follows:**
+
+
+-----------------------------------------------------------------------------------------------------------
+
+### Segmenting Prepared Data
+After cleaning the data, it is split into 2 samples; train and test.
+
+The train sample is used to explore, fit to models, and evaluate results without looking at new data.
+The test set sample is used to give an estimate of how this model will perform on data it has never seen in the future.
+The samples are then separated into two groups with y representing the target variable and x representing the rest of the data.
+
+
+===========================================================================================================
+
+
+### IV. Modeling
+
+achievement of 50K is a yes or no (boolean) value, classification machine learning algorithms were used to fit to the training data set and the models were evaluated on the test dataset. The metrics used for model evaluation was accuracy, due to the multi-class classification approach. In other words, the model was optimized for identifying true positives, false positive, true negatives, and false negatives, therefore we focused on creating a model with the highest accuracy score from train to test.
+
+
+```{r Classification}
+# Classification Round 1--------------------------------------------------------
+
+set.seed(11111)
+
+#Generate list of indices to split data on 
+trainList <- createDataPartition(y=adultNumeric$class_numeric, p=.8,list=F)
+
+#Create training and testing subsets
+trainSet <- adultNumeric[trainList,]
+testSet <- adultNumeric[-trainList,]
+
+#Train an rPart Model
+rPartModel <- train(class_numeric ~ ., data = trainSet, method = "rpart",
+                  preProc=c("center", "scale"))
+
+#Check Accuracy of Model
+rPartPred <- predict(rPartModel, newdata = testSet, type = "raw")
+
+confusionMatrix(rPartPred, testSet$class_numeric)
+
+varImp(rPartModel)
+```
+
+```{r Classification 2}
+# Classification Round 2--------------------------------------------------------
+
+#Train an rPart Model
+rPartModel2 <- train(class_numeric ~ . -fnlwgt -capital.gain -capital.loss -education.num , 
+                    data = trainSet, 
+                    method = "rpart",
+                    preProc=c("center", "scale"))
+
+#Check Accuracy of Model
+rPartPred <- predict(rPartModel2, newdata = testSet, type = "raw")
+
+confusionMatrix(rPartPred, testSet$class_numeric)
+
+varImp(rPartModel2)
+
+```
+
+```{r Classification 3}
+# Classification Round 3--------------------------------------------------------
+
+#Train an rPart Model
+rPartModel3 <- train(class_numeric ~ marital.status_numeric + age + education_numeric + occupation_numeric , 
+                    data = trainSet, 
+                    method = "rpart",
+                    preProc=c("center", "scale"))
+
+#Check Accuracy of Model
+rPartPred <- predict(rPartModel3, newdata = testSet, type = "raw")
+
+confusionMatrix(rPartPred, testSet$class_numeric)
+
+varImp(rPartModel3)
+
+```
+
+-----------------------------------------------------------------------------------------------------------
+#### Modeling Results
+
+
+
+
+
+
+===========================================================================================================
+
+### V. Conclusion
+
+#### Recommendations
+
+#### Next Steps
+
+
+
+
